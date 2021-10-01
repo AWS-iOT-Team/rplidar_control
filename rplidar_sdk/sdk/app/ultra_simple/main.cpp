@@ -24,10 +24,38 @@
  *
  */
 
+#include "rplidar.h" //RPLIDAR standard sdk, all-in-one header
+#include <string.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <termios.h>
+#include <sys/ioctl.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
-#include "rplidar.h" //RPLIDAR standard sdk, all-in-one header
+// for yolo
+#include <sys/stat.h>
+#define  FIFO_FROM_LIDAR   "/tmp/from_lidar_fifo"
+#define  FIFO_TO_LIDAR     "/tmp/to_lidar_fifo"
+#define  BUFF_SIZE   1024
+#include <sys/stat.h>
+
+#include <thread>
+
+int   counter = 0;
+int   fd_from_yolo;
+int   fd_to_yolo;
+char  buff[BUFF_SIZE];
+int     handle;
+struct  termios  oldtio,newtio;
+char    *TitleMessage = "Welcome Serial Port\r\n";
+char    Buff[256];
+int     RxCount;
+int     loop;
+int     ending;    
+int     key;
 
 #ifndef _countof
 #define _countof(_Array) (int)(sizeof(_Array) / sizeof(_Array[0]))
@@ -48,7 +76,46 @@ static inline void delay(_word_size_t ms){
 }
 #endif
 
+using std::thread;
 using namespace rp::standalone::rplidar;
+
+double what_time_is_it_now()
+{
+    struct timeval time;
+    if (gettimeofday(&time,NULL)){
+        return 0;
+    }
+    return (double)time.tv_sec + (double)time.tv_usec * .000001;
+}
+
+// 쓰레드 함수
+void t_function()
+{
+    int i = 0;
+
+    //from yolo
+    while(1)
+    {
+        while(read(fd_from_yolo, buff, BUFF_SIZE) != NULL)
+        {
+            if(buff[0] == 'a')
+                Buff[0] = 'f';
+            else if(buff[0] == 'b')
+                Buff[0] = 'g';
+            else if(buff[0] == 'c')
+                Buff[0] = 'h';
+            else if(buff[0] == 'd')
+                Buff[0] = 'i';
+            else if(buff[0] == 'i')
+                Buff[0] = 'j';
+            else
+                Buff[0] = buff[0];
+            write( handle, Buff, 1 );
+            printf("%s", buff);
+            memset(buff, 0x00, BUFF_SIZE);
+        }
+    }
+}
 
 bool checkRPLIDARHealth(RPlidarDriver * drv)
 {
@@ -74,21 +141,99 @@ bool checkRPLIDARHealth(RPlidarDriver * drv)
     }
 }
 
-#include <signal.h>
 bool ctrl_c_pressed;
 void ctrlc(int)
 {
     ctrl_c_pressed = true;
 }
 
+int getch(void)
+{
+    struct termios oldattr, newattr;
+    int ch;
+    tcgetattr( STDIN_FILENO, &oldattr );
+    newattr = oldattr;
+    newattr.c_lflag &= ~( ICANON | ECHO );
+    tcsetattr( STDIN_FILENO, TCSANOW, &newattr );
+    ch = getchar();
+    tcsetattr( STDIN_FILENO, TCSANOW, &oldattr );
+    return ch;
+}
+
+int main_menu(void)
+{
+    int key;
+
+    printf("\n\n");
+    printf("-------------------------------------------------\n");
+    printf("                    MAIN MENU\n");
+    printf("-------------------------------------------------\n");
+
+    printf(" a. Turn Left                                    \n");
+    printf(" b. Turn Right                                   \n");
+    printf(" c. Forward                                      \n");
+    printf(" d. backward                                     \n");
+    printf(" i. stop                                         \n");
+    printf(" I. speed up +10                                 \n");
+    printf(" D. speed down -10                               \n");
+
+
+    printf("-------------------------------------------------\n");
+    printf(" q. Motor Control application QUIT               \n");
+    printf("-------------------------------------------------\n");
+    printf("\n\n");
+ 
+    printf("SELECT THE COMMAND NUMBER : ");
+
+    key=getch();
+ 
+    return key;
+}
+
 int main(int argc, const char * argv[]) {
+
+    //SECTION code is added -->
+    int thr_id;
+    int a = 1;
+
+    thread t1(t_function);
+
+    // from wifi thread
+    if ( -1 == ( fd_from_yolo = open(FIFO_FROM_LIDAR, O_RDWR) ))
+    {
+        if ( -1 == mkfifo( FIFO_FROM_LIDAR, 0666))
+        {
+            perror( "mkfifo() run error");
+            //exit( 1);
+        }
+        if ( -1 == ( fd_from_yolo = open( FIFO_FROM_LIDAR, O_RDWR)))
+        {
+            perror( "open() error");
+            //exit( 1);
+        }
+    }
+    // to wifi thread
+    if ( -1 == ( fd_to_yolo = open( FIFO_TO_LIDAR, O_RDWR)))
+    {
+        if ( -1 == mkfifo( FIFO_TO_LIDAR, 0666))
+        {
+            perror( "mkfifo() run error");
+            //exit( 1);
+        }
+        if ( -1 == ( fd_to_yolo = open( FIFO_TO_LIDAR, O_RDWR)))
+        {
+            perror( "open() error");
+            //exit( 1);
+        }
+    }
+
     const char * opt_com_path = NULL;
     _u32         baudrateArray[2] = {115200, 256000};
     _u32         opt_com_baudrate = 0;
     u_result     op_result;
 
-    bool useArgcBaudrate = false;
-
+    bool useArgcBaudrate = false;  
+    
     printf("Ultra simple LIDAR data grabber for RPLIDAR.\n"
            "Version: " RPLIDAR_SDK_VERSION "\n");
 
@@ -207,12 +352,16 @@ int main(int argc, const char * argv[]) {
         op_result = drv->grabScanDataHq(nodes, count);
         if (IS_OK(op_result)) {
             drv->ascendScanData(nodes, count);
+
+            // (nodes[pos].angle_z_q14 * 90.f / (1 << 14)) = 각도가 360을 넘기기 전까지 반복
+            // 반복 조건문을 수정 시 보고 싶은 각도까지 설정 가능할 듯
             for (int pos = 0; pos < (int)count ; ++pos) {
                 printf("%s theta: %03.2f Dist: %08.2f Q: %d \n", 
-                    (nodes[pos].flag & RPLIDAR_RESP_MEASUREMENT_SYNCBIT) ?"S ":"  ", 
+                    (nodes[pos].flag & RPLIDAR_RESP_MEASUREMENT_SYNCBIT) ?"S \n" : " ", 
                     (nodes[pos].angle_z_q14 * 90.f / (1 << 14)), 
                     nodes[pos].dist_mm_q2/4.0f,
-                    nodes[pos].quality);
+                    nodes[pos].quality);   
+                    fprintf(stdout, "  degree_count : %d \n", pos);
             }
         }
 

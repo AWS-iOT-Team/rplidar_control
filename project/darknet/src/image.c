@@ -236,9 +236,19 @@ image **load_alphabet()
     return alphabets;
 }
 
+#if 1 //SECTION code is added
+int draw_detections(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int target_class, float *xval, float *wval, float *hval)
+#else
 void draw_detections(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes)
+#endif
 {
     int i,j;
+    //code is added -->
+        int ret = 0;
+        int found_class = 0;
+
+        printf("[image.c] %s : target_class = %d\n", __func__, target_class);
+    //code is added <--
 
     for(i = 0; i < num; ++i){
         char labelstr[4096] = {0};
@@ -252,7 +262,13 @@ void draw_detections(image im, detection *dets, int num, float thresh, char **na
                     strcat(labelstr, ", ");
                     strcat(labelstr, names[j]);
                 }
+                //code is added -->
+                #if 1
+                printf("class(%d), %s: %.0f%%\n",j, names[j], dets[i].prob[j]*100);
+                #else
                 printf("%s: %.0f%%\n", names[j], dets[i].prob[j]*100);
+                #endif
+                //code is added <--
             }
         }
         if(class >= 0){
@@ -278,7 +294,15 @@ void draw_detections(image im, detection *dets, int num, float thresh, char **na
             rgb[1] = green;
             rgb[2] = blue;
             box b = dets[i].bbox;
-            //printf("%f %f %f %f\n", b.x, b.y, b.w, b.h);
+            //code is added -->
+            if(target_class != -1 && class == target_class) {
+                    ret = 1;
+                    memcpy(xval, &b.x, sizeof(float));
+                    memcpy(wval, &b.w, sizeof(float));
+                    memcpy(hval, &b.h, sizeof(float));
+            }
+            //code is added <--
+            printf("x:%f y:%f w:%f h:%f\n", b.x, b.y, b.w, b.h);
 
             int left  = (b.x-b.w/2.)*im.w;
             int right = (b.x+b.w/2.)*im.w;
@@ -289,6 +313,10 @@ void draw_detections(image im, detection *dets, int num, float thresh, char **na
             if(right > im.w-1) right = im.w-1;
             if(top < 0) top = 0;
             if(bot > im.h-1) bot = im.h-1;
+
+            //code is added -->
+            printf("left(%d), right(%d), top(%d), bottom(%d)\n", left, right, top, bot);
+            //code is added <--
 
             draw_box_width(im, left, top, right, bot, width, red, green, blue);
             if (alphabet) {
@@ -307,6 +335,9 @@ void draw_detections(image im, detection *dets, int num, float thresh, char **na
             }
         }
     }
+    //code is added -->
+    return ret;
+    //!SECTION code is added <--
 }
 
 void transpose_image(image im)

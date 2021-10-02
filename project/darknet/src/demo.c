@@ -9,9 +9,26 @@
 #include "demo.h"
 #include <sys/time.h>
 
+//SECTION code is added -->
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <pthread.h>
+#define  FIFO_FROM_YOLO   "/tmp/from_yolo_fifo"
+#define  FIFO_TO_YOLO     "/tmp/to_yolo_fifo"
+#define  BUFF_SIZE   1024
+
+//temp human
+//int   target_class_a = -1;
+int   target_class_a = 0;
+char  buff_a[BUFF_SIZE];
+
+int   fd_from_yolo;
+int   fd_to_yolo;
+//!SECTION code is added <--
+
 #define DEMO 1
 
-#ifdef OPENCV
+//#ifdef OPENCV
 
 static char **demo_names;
 static image **demo_alphabet;
@@ -87,6 +104,14 @@ void *detect_in_thread(void *ptr)
     running = 1;
     float nms = .4;
 
+    //code is added -->
+    float target_xval = .0f;
+    float target_wval = .0f;
+    float target_hval = .0f;
+    float distance_val = .0f;
+
+    //code is added <--
+
     layer l = net->layers[net->n-1];
     float *X = buff_letter[(buff_index+2)%3].data;
     network_predict(net, X);
@@ -129,7 +154,120 @@ void *detect_in_thread(void *ptr)
     printf("\nFPS:%.1f\n",fps);
     printf("Objects:\n\n");
     image display = buff[(buff_index+2) % 3];
-    draw_detections(display, dets, nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
+    //SECTION code is added -->
+    #if 0
+        draw_detections(display, dets, nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
+    #else
+        if(draw_detections(display, dets, nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, target_class_a, &target_xval, &target_wval, &target_hval)) {
+            distance_val = target_wval*target_hval;
+            printf("[demo.c] target class(%d), xval = %f, wval = %f, hval = %f distance_val = %f \n", target_class_a, target_xval, target_wval, target_hval, distance_val);
+
+
+
+
+
+#if 0    // 세부 조정을 하기 위해서 범위를 세분화 함
+            if(target_xval > 0.6){
+                buff_a[0] = 'b';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }else if(target_xval < 0.4){
+                buff_a[0] = 'a';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }else{
+                if(distance_val < 0.5){             // go forward if too far
+                	   buff_a[0] = 'c';
+                	   write( fd_from_yolo, buff_a, 1 );
+                	   //printf('speed up');
+                	   printf("%c\n", buff_a[0]);
+                }else if(distance_val > 0.6){       // go backward if too close
+                	   buff_a[0] = 'd';
+                	   write( fd_from_yolo, buff_a, 1 );
+                	   //printf('speed down');
+                	   printf("%c\n", buff_a[0]);
+                }else{				                      // stop if middle
+                	   buff_a[0] = 'i';
+                	   write( fd_from_yolo, buff_a, 1 );
+                	   printf("%c\n", buff_a[0]);
+                }
+            }
+#else
+            // 오른쪽으로 회전에 대한 x 값 추출  A(0.9), B(0.8), C(0.7), D(0.6)
+            if(target_xval > 0.9){
+                buff_a[0] = 'A';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }
+            else if(target_xval > 0.8){
+                buff_a[0] = 'B';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }
+            else if(target_xval > 0.7){
+                buff_a[0] = 'C';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }
+            else if(target_xval > 0.6){
+                buff_a[0] = 'D';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }
+            // 왼쪽으로 회전에 대한 x 값 추출 E(0.4), F(0.3), G(0.2), H(0.1)
+            else if(target_xval < 0.4){
+                buff_a[0] = 'E';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }
+            else if(target_xval < 0.3){
+                buff_a[0] = 'F';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }
+            else if(target_xval < 0.2){
+                buff_a[0] = 'G';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }
+            else if(target_xval < 0.1){
+                buff_a[0] = 'H';
+                write( fd_from_yolo, buff_a, 1 );
+                printf("%c\n", buff_a[0]);
+            }
+            else{
+                if(distance_val < 0.5){             // go forward if too far
+                	   buff_a[0] = 'c';
+                	   write( fd_from_yolo, buff_a, 1 );
+                	   //printf('speed up');
+                	   printf("%c\n", buff_a[0]);
+                }else if(distance_val > 0.6){       // go backward if too close
+                	   buff_a[0] = 'd';
+                	   write( fd_from_yolo, buff_a, 1 );
+                	   //printf('speed down');
+                	   printf("%c\n", buff_a[0]);
+                }else{				                      // stop if middle
+                	   buff_a[0] = 'i';
+                	   write( fd_from_yolo, buff_a, 1 );
+                	   printf("%c\n", buff_a[0]);
+                }
+            }
+
+#endif
+
+
+
+
+
+        }else{
+          buff_a[0] = 'i';
+          write( fd_from_yolo, buff_a, 1 );
+          printf("%c\n", buff_a[0]);
+        }
+    #endif
+    //!SECTION code is added <--
+
+
     free_detections(dets, nboxes);
 
     demo_index = (demo_index + 1)%demo_frame;
@@ -184,6 +322,54 @@ void *detect_loop(void *ptr)
     }
 }
 
+
+//SECTION code is added -->
+void *t_function_a(void *data)
+{
+    int id;    
+    id = *((int *)data);
+
+    while(1)
+    {
+        while(read(fd_to_yolo, buff_a, BUFF_SIZE) != 0)
+        {
+            if(buff_a[0] == 'A')                     // apple  39 - bottle
+            {
+                target_class_a = 56;
+                printf("class %d\n", target_class_a);
+                buff_a[0]=0;
+            }
+            if(buff_a[0] == 'B')                     // banana 0 - person
+            {
+                target_class_a = 0;
+                printf("class %d\n", target_class_a);
+                buff_a[0]=0;
+            }
+            if(buff_a[0] == 'C')                     // bicycle
+            {
+                target_class_a = 1;
+                printf("class %d\n", target_class_a);
+                buff_a[0]=0;
+            }
+            if(buff_a[0] == 'D')                     // dog
+            {
+                target_class_a = 66;
+                printf("class %d\n", target_class_a);
+                buff_a[0]=0;
+            }
+            if(buff_a[0] == 'E')                     // truck
+            {
+                target_class_a = 7;
+                printf("class %d\n", target_class_a);
+                buff_a[0]=0;
+            }
+        }
+    }
+}
+//!SECTION code is added <--
+
+
+
 void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg_frames, float hier, int w, int h, int frames, int fullscreen)
 {
     //demo_frame = avg_frames;
@@ -193,6 +379,50 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     demo_classes = classes;
     demo_thresh = thresh;
     demo_hier = hier;
+
+    //SECTION code is added -->
+    pthread_t p_thread[2];
+    int thr_id;
+    int a = 1;
+
+    thr_id = pthread_create(&p_thread[0], NULL, t_function_a, (void *)&a);
+    if (thr_id < 0)
+    {
+        perror("thread create error : ");
+        exit(0);
+    }
+    // from wifi thread
+    if ( -1 == ( fd_from_yolo = open(FIFO_FROM_YOLO, O_RDWR) ))
+    {
+        if ( -1 == mkfifo( FIFO_FROM_YOLO, 0666))
+        {
+            perror( "mkfifo() run error");
+            //exit( 1);
+        }
+        if ( -1 == ( fd_from_yolo = open( FIFO_FROM_YOLO, O_RDWR)))
+        {
+            perror( "open() error");
+            //exit( 1);
+        }
+    }
+    // to wifi thread
+    if ( -1 == ( fd_to_yolo = open( FIFO_TO_YOLO, O_RDWR)))
+    {
+        if ( -1 == mkfifo( FIFO_TO_YOLO, 0666))
+        {
+            perror( "mkfifo() run error");
+            //exit( 1);
+        }
+        if ( -1 == ( fd_to_yolo = open( FIFO_TO_YOLO, O_RDWR)))
+        {
+            perror( "open() error");
+            //exit( 1);
+        }
+    }
+    //!SECTION code is added <--
+
+
+
     printf("Demo\n");
     net = load_network(cfgfile, weightfile, 0);
     set_batch_network(net, 1);
@@ -321,29 +551,29 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 
    demo_time = what_time_is_it_now();
 
-   while(!demo_done){
-buff_index = (buff_index + 1) %3;
-if(pthread_create(&fetch_thread, 0, fetch_in_thread, 0)) error("Thread creation failed");
-if(pthread_create(&detect_thread, 0, detect_in_thread, 0)) error("Thread creation failed");
-if(!prefix){
-    fps = 1./(what_time_is_it_now() - demo_time);
-    demo_time = what_time_is_it_now();
-    display_in_thread(0);
-}else{
-    char name[256];
-    sprintf(name, "%s_%08d", prefix, count);
-    save_image(buff[(buff_index + 1)%3], name);
-}
-pthread_join(fetch_thread, 0);
-pthread_join(detect_thread, 0);
-++count;
-}
+while(!demo_done){
+        buff_index = (buff_index + 1) %3;
+        if(pthread_create(&fetch_thread, 0, fetch_in_thread, 0)) error("Thread creation failed");
+        if(pthread_create(&detect_thread, 0, detect_in_thread, 0)) error("Thread creation failed");
+        if(!prefix){
+            fps = 1./(what_time_is_it_now() - demo_time);
+            demo_time = what_time_is_it_now();
+            display_in_thread(0);
+        }else{
+            char name[256];
+            sprintf(name, "%s_%08d", prefix, count);
+            save_image(buff[(buff_index + 1)%3], name);
+        }
+            pthread_join(fetch_thread, 0);
+            pthread_join(detect_thread, 0);
+            ++count;
+    }
 }
 */
-#else
-void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg, float hier, int w, int h, int frames, int fullscreen)
-{
-    fprintf(stderr, "Demo needs OpenCV for webcam images.\n");
-}
-#endif
+// #else
+// void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg, float hier, int w, int h, int frames, int fullscreen)
+// {
+//     fprintf(stderr, "Demo needs OpenCV for webcam images.\n");
+// }
+// #endif
 

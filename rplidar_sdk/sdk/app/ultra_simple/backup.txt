@@ -51,13 +51,11 @@ int              counter = 0;
 int              fd_from_yolo;
 int              fd_to_yolo;
 char             buff[BUFF_SIZE];
-char             Buff[256];
-char             buff_a[BUFF_SIZE]; 
 int              handle;
 struct  termios  oldtio,newtio;
 const char*      TitleMessage = "Welcome Serial Port\r\n";
+char             Buff[256]; 
 int              key;
-int              fd;
 
 #ifndef _countof
 #define _countof(_Array) (int)(sizeof(_Array) / sizeof(_Array[0]))
@@ -90,6 +88,27 @@ double what_time_is_it_now()
     return (double)time.tv_sec + (double)time.tv_usec * .000001;
 }
 
+// 쓰레드 함수
+void t_function()
+{
+    int fd;
+
+    //from yolo
+    while(1)
+    {
+        while(read(fd_from_yolo, buff, BUFF_SIZE) > 0)
+        {
+            Buff[0] = buff[0];
+            fd = write( handle, Buff, 1 );
+            if (fd < 0){
+                cout << "write() error";
+            }
+            printf("%s", buff);
+            memset(buff, 0x00, BUFF_SIZE);
+        }
+    }
+}
+
 bool checkRPLIDARHealth(RPlidarDriver * drv)
 {
     u_result     op_result;
@@ -120,52 +139,27 @@ void ctrlc(int)
     ctrl_c_pressed = true;
 }
 
-// 쓰레드 함수
-void t_function()
-{
-    int fd_write;
-
-    //from yolo
-    while(1)
-    {
-        while(read(fd_from_yolo, buff, BUFF_SIZE) != -1)
-        {
-            Buff[0] = buff[0];
-            fd_write = write( handle, Buff, 1 );
-            if (fd_write < 0){
-                cout << "write() error";
-            }
-            printf("%s", buff);
-            memset(buff, 0x00, BUFF_SIZE);
-        }
-    }
-}
-
-int getch(int key)
+int getch(int fd)
 {
     struct termios oldattr, newattr;
-    int process_flag; 
 
-    cout << "getch() fd : " << fd << endl;
-    int get_chk = tcgetattr(STDIN_FILENO, &oldattr);
-
+    int get_chk = tcgetattr(fd, &oldattr);
+    if (get_chk < 0){
+        cout << "tcgetattr() failed.\n";
+        exit(-1);
+    }
     newattr = oldattr;
     newattr.c_lflag &= ~( ICANON | ECHO );
     
     // TCSANOW : 즉시 변경
-    int set_chk = tcsetattr( STDIN_FILENO, TCSANOW, &newattr );
-    
-    process_flag = key;
-    
-    set_chk = tcsetattr( STDIN_FILENO, TCSANOW, &oldattr );
-    
-    int result_chk = get_chk + set_chk;
-    if (result_chk < 0){
-        cout << "tc() failed.\n";
+    int set_chk = tcsetattr( fd, TCSANOW, &newattr );
+    if (set_chk < 0){
+        cout << "tcsetattr() failed.\n";
         exit(-1);
     }
-
-    return process_flag;
+    set_chk = tcsetattr( fd, TCSANOW, &oldattr );
+    
+    return fd;
 }
 
 // int main_menu(int key)
@@ -222,9 +216,9 @@ int main(int argc, const char * argv[]) {
    
     //SECTION code is added -->
     struct termios oldtio, newtio;
-    int title;
-    thread t_f(t_function);
-    
+    int fd;
+    thread t1(t_function);
+
     // from wifi thread
     if ( -1 == ( fd_from_yolo = open(FIFO_FROM_LIDAR, O_RDWR) ))
     {
@@ -258,8 +252,7 @@ int main(int argc, const char * argv[]) {
     // handle = open( "/dev/ttyUSB1", O_RDWR | O_NOCTTY );
     // handle = open( "/dev/ttyUSB0", O_RDWR | O_NOCTTY );
     handle = open( "/dev/ttyTHS2", O_RDWR | O_NOCTTY );
-    cout << "handle : " << handle << endl;
-    if( handle == -1) 
+    if( handle < 0 ) 
     {
         //화일 열기 실패
         // printf( "Serial Open Fail [/dev/ttyUSB0]\r\n "  );
@@ -284,8 +277,8 @@ int main(int argc, const char * argv[]) {
     tcsetattr( handle, TCSANOW, &newtio );
     
     // 타이틀 메세지를 표출한다. 
-    title = write( handle, TitleMessage, strlen( TitleMessage ) );
-    if (title == -1){
+    fd = write( handle, TitleMessage, strlen( TitleMessage ) );
+    if (fd < 0){
         cout << "write() failed.\n";
     }
 
@@ -407,6 +400,7 @@ int main(int argc, const char * argv[]) {
     drv->startScan(0,1);
 
     // fetech result and print it out...
+    int chk;
     while (1) 
     {
         rplidar_response_measurement_node_hq_t nodes[8192];
@@ -421,68 +415,59 @@ int main(int argc, const char * argv[]) {
             // 반복 조건문을 수정 시 보고 싶은 각도까지 설정 가능할 듯
             for (int pos = 0; pos < (int)count; ++pos) 
             {
-                // angle_z_q14 : deg(각도)
-                // dist_mm_q2 : mm 단위 
-                // quality : measurement quality; 반사된 레이저 펄스 강
+                 
                 printf("%s theta: %03.2f Dist: %08.2f Q: %d \n", 
                     (nodes[pos].flag & RPLIDAR_RESP_MEASUREMENT_SYNCBIT) ?"S \n" : " ", 
                     (nodes[pos].angle_z_q14 * 90.f / (1 << 14)), 
                     nodes[pos].dist_mm_q2/4.0f,
                     nodes[pos].quality);   
                     fprintf(stdout, "  degree_count : %d \n", pos);
-                    key = getch(nodes[pos].quality);
-                
-                    switch(key)
-                    {               
-                        case 0:
-                            printf("0 == i => stop.\n");               
-                            //Buff[0] = 'i';quality
-                            fd = write(handle, Buff, 1 );
-                            cout << "main fd : " << fd << endl;
-                            if (fd == -1){
-                                cout << "write() error\n";
-                                exit(-1);
-                            }
-                            
-                            break;
 
-                        // case 113 || 'q': 
-                        //     close(handle);
-                        //     drv->stop();
-                        //     drv->stopMotor();
-                        //     drv = NULL;
-                        //     exit(0);
-                        //     break;
-
-                        default :
-                            printf("other == c => keep going.\n");               
-                            //Buff[0] = 'c';
-                            Buff[0] = 'c';
-                            fd = write( handle, Buff, 1 );
-                            cout << "main fd : " << fd << endl;
-                            if (fd == -1){
-                                cout << "write() error\n";
-                                exit(-1);
-                            }
-
-                            break;
-                    }
-                    if (ctrl_c_pressed){ 
+                key = nodes[pos].quality;
+                switch(key)
+                {               
+                    case 0:
+                        printf("0 == i => stop.\n");               
+                        //Buff[0] = 'i';
+                        Buff[0] = 'i';
+                        fd = write( handle, Buff, 1 );
+                        chk = getch(fd);
+                        if (chk < 0){
+                            cout << "write() error\n";
+                            exit(-1);
+                        }
                         break;
-                    }
-                
-                
+
+                    // case 113 || 'q': 
+                    //     close(handle);
+                    //     drv->stop();
+                    //     drv->stopMotor();
+                    //     drv = NULL;
+                    //     exit(0);
+                    //     break;
+
+                    default :
+                        printf("other == c => keep going.\n");               
+                        //Buff[0] = 'c';
+                        Buff[0] = 'c';
+                        fd = write( handle, Buff, 1 );
+                        chk = getch(fd);
+                        if (chk < 0){
+                            cout << "write() error\n";
+                            exit(-1);
+                        }
+                        break;
+                }
                 if (ctrl_c_pressed){ 
                     break;
                 }                 
             }
         }
+
         if (ctrl_c_pressed){ 
             break;
         }
     }
-    tcsetattr( handle, TCSANOW, &oldtio );
-    close( handle );
 
     drv->stop();
     drv->stopMotor();

@@ -73,7 +73,7 @@ def _process_scan(raw):
     '''Processes input raw data and returns measurment data'''
     new_scan = bool(_b2i(raw[0]) & 0b1)
     inversed_new_scan = bool((_b2i(raw[0]) >> 1) & 0b1)
-    quality = _b2i(raw[0]) >> 2
+    quality = _b2i(raw[0]) >> 2 
     if new_scan == inversed_new_scan:
         raise RPLidarException('New scan flags mismatch')
     check_bit = _b2i(raw[1]) & 0b1
@@ -81,6 +81,7 @@ def _process_scan(raw):
         raise RPLidarException('Check bit not equal to 1')
     angle = ((_b2i(raw[1]) >> 1) + (_b2i(raw[2]) << 7)) / 64.
     distance = (_b2i(raw[3]) + (_b2i(raw[4]) << 8)) / 4.
+    print("parameters(quality, angle, distance) = ", quality, angle, distance)
     return new_scan, quality, angle, distance
 
 
@@ -210,6 +211,7 @@ class RPLidar(object):
         '''
         self._send_cmd(GET_INFO_BYTE)
         dsize, is_single, dtype = self._read_descriptor()
+        print("dsize = ", dsize)
         if dsize != INFO_LEN:
             raise RPLidarException('Wrong get_info reply length')
         if not is_single:
@@ -321,7 +323,7 @@ class RPLidar(object):
         if dtype != SCAN_TYPE:
             raise RPLidarException('Wrong response data type')
         while True:
-            raw = self._read_response(dsize)
+            raw = self._read_response(dsize)    
             self.logger.debug('Recieved scan response: %s' % raw)
             if max_buf_meas:
                 data_in_buf = self._serial_port.in_waiting

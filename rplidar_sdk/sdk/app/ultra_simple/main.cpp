@@ -59,6 +59,29 @@ const char*      TitleMessage = "Welcome Serial Port\r\n";
 int              key;
 int              fd;
 
+// rate & resolution
+char plus_minus_rate[1024];
+
+int buff_size_chk;
+
+float err_dist_rate = 0.0f;
+float min_err_dist_rate = 0.0f;
+float max_err_dist_rate = 0.0f;
+float dst_distance = 0.0f;
+float src_distance = 967.0f;
+char min_err_dist_rate_buff[1024];
+char max_err_dist_rate_buff[1024];
+
+float err_angle_resolution = 0.0f;
+float min_err_angle_resolution = 0.0f;
+float max_err_angle_resolution = 0.0f;
+float prev_angle = 0.0f;
+float dst_angle = 0.0f;
+float src_angle = 4.0f;
+char min_err_angle_resolution_buff[1024];
+char max_err_angle_resolution_buff[1024];
+////
+
 #ifndef _countof
 #define _countof(_Array) (int)(sizeof(_Array) / sizeof(_Array[0]))
 #endif
@@ -166,6 +189,98 @@ int getch(int key)
     }
 
     return process_flag;
+}
+
+void rate_resolution_measurement(){
+    
+    char dist_sign = '+';
+    char angle_sign = '-';
+    
+    if (src_distance < dst_distance)
+    {
+        err_dist_rate = ((dst_distance - src_distance) / src_distance) * 100;
+    }
+    else
+    {
+        dist_sign = '-';
+        err_dist_rate = ((src_distance - dst_distance) / src_distance) * 100;
+    }
+
+    // 거리 상에서 물체를 감지하지 못하면 각도 분해능 측정 x
+    if(err_dist_rate <= 0.0 && err_dist_rate >= 100.0)
+    {
+        cout << "Couldn't detect" << endl;   
+    }
+    else if(err_dist_rate > 0.0 && err_dist_rate < 100.0)
+    {
+        // distance initialize
+        if(min_err_dist_rate <= 0.0 && max_err_dist_rate <= 0.0)
+        {
+            max_err_dist_rate = min_err_dist_rate = err_dist_rate;
+        }
+        else
+        {
+            if (max_err_dist_rate < err_dist_rate)
+            {
+                max_err_dist_rate = err_dist_rate;
+                cout << "err_dist_rate 1 " << err_dist_rate << endl;
+                if((buff_size_chk = snprintf(max_err_dist_rate_buff, 1024, "%c %03.2f", dist_sign, max_err_dist_rate)) > 1024)
+                {
+                    cout << "overflow" << endl;
+                    exit(-2);
+                }
+            }
+            else if (min_err_dist_rate > err_dist_rate)
+            {
+                min_err_dist_rate = err_dist_rate;
+                cout << "err_dist_rate 2 " << err_dist_rate << endl;
+                if((buff_size_chk = snprintf(min_err_dist_rate_buff, 1024, "%c %03.2f", dist_sign, min_err_dist_rate)) > 1024)
+                {
+                    cout << "overflow" << endl;
+                    exit(-2);
+                }
+            }   
+        }
+    }
+
+    // 서로 거리가 다른 물체 감지
+    if (src_angle < prev_angle)
+    {
+        err_angle_resolution = prev_angle - src_angle;
+    }
+    // 하나만 감지
+    else
+    {
+        angle_sign = '-';
+        err_angle_resolution = src_angle - prev_angle;  
+    }
+
+    // degree initialize
+    if(err_angle_resolution <= 0.0 && err_angle_resolution >= 100.0)
+    {
+        cout << "Couldn't detect" << endl;   
+    }
+    else if (err_angle_resolution > 0.0 && err_angle_resolution < 100.0)
+    {
+        if(min_err_angle_resolution <= 0.0 && max_err_angle_resolution <= 0.0)
+        {
+            min_err_angle_resolution = err_angle_resolution;
+        }
+        else
+        {
+            if (min_err_angle_resolution > err_angle_resolution)
+            {
+                min_err_angle_resolution = err_angle_resolution;
+                cout << "err_angle_resolution" << err_angle_resolution << endl;
+                if((buff_size_chk = snprintf(min_err_angle_resolution_buff, 1024, "%c %03.2f", angle_sign, min_err_angle_resolution)) > 1024)
+                {
+                    cout << "overflow" << endl;
+                    exit(-2);
+                }
+            }
+        }
+        
+    }
 }
 
 // int main_menu(int key)
@@ -293,7 +408,7 @@ int main(int argc, const char * argv[]) {
     _u32         baudrateArray[2] = {115200, 256000};
     _u32         opt_com_baudrate = 0;
     u_result     op_result;
-
+    
     bool useArgcBaudrate = false;  
     
     printf("Ultra simple LIDAR data grabber for RPLIDAR.\n"
@@ -419,7 +534,8 @@ int main(int argc, const char * argv[]) {
 
             // (nodes[pos].angle_z_q14 * 90.f / (1 << 14)) = 각도가 360을 넘기기 전까지 반복
             // 반복 조건문을 수정 시 보고 싶은 각도까지 설정 가능할 듯
-            for (int pos = 0; pos < (int)count; ++pos) 
+            // for (int pos = 0; pos < (int)count; ++pos)
+            for (int pos = 0; pos < (int)src_angle; ++pos) 
             {
                 // angle_z_q14 : deg(각도)
                 // dist_mm_q2 : mm 단위 
@@ -428,51 +544,67 @@ int main(int argc, const char * argv[]) {
                     (nodes[pos].flag & RPLIDAR_RESP_MEASUREMENT_SYNCBIT) ?"S \n" : " ", 
                     (nodes[pos].angle_z_q14 * 90.f / (1 << 14)), 
                     nodes[pos].dist_mm_q2/4.0f,
-                    nodes[pos].quality);   
+                    nodes[pos].quality);
+                    
+                    dst_distance = nodes[pos].dist_mm_q2/4.0f;
+                    if (dst_distance > 0.0f)
+                    {
+                        dst_angle = (nodes[pos].angle_z_q14 * 90.f / (1 << 14));
+                        prev_angle = dst_angle;
+                        fprintf(stdout, "       prev_angle : %03.2f \n", prev_angle);
+                    }
+                    
+                    // 오차 측정 함수
+                    rate_resolution_measurement();
+
                     fprintf(stdout, "  degree_count : %d \n", pos);
-                    key = getch(nodes[pos].quality);
+                    
+                    // key = getch(nodes[pos].quality);
                 
-                    switch(key)
-                    {               
-                        case 0:
-                            printf("0 == i => stop.\n");               
-                            //Buff[0] = 'i';quality
-                            fd = write(handle, Buff, 1 );
-                            cout << "main fd : " << fd << endl;
-                            if (fd == -1){
-                                cout << "write() error\n";
-                                exit(-1);
-                            }
+                    // switch(key)
+                    // {               
+                    //     case 0:
+                    //         printf("0 == i => stop.\n");               
+                    //         //Buff[0] = 'i';quality
+                    //         fd = write(handle, Buff, 1 );
+                    //         cout << "main fd : " << fd << endl;
+                    //         if (fd == -1){
+                    //             cout << "write() error\n";
+                    //             exit(-1);
+                    //         }
                             
-                            break;
+                    //         break;
 
-                        // case 113 || 'q': 
-                        //     close(handle);
-                        //     drv->stop();
-                        //     drv->stopMotor();
-                        //     drv = NULL;
-                        //     exit(0);
-                        //     break;
+                    //     // case 113 || 'q': 
+                    //     //     close(handle);
+                    //     //     drv->stop();
+                    //     //     drv->stopMotor();
+                    //     //     drv = NULL;
+                    //     //     exit(0);
+                    //     //     break;
 
-                        default :
-                            printf("other == c => keep going.\n");               
-                            //Buff[0] = 'c';
-                            Buff[0] = 'c';
-                            fd = write( handle, Buff, 1 );
-                            cout << "main fd : " << fd << endl;
-                            if (fd == -1){
-                                cout << "write() error\n";
-                                exit(-1);
-                            }
+                    //     default :
+                    //         printf("other == c => keep going.\n");               
+                    //         //Buff[0] = 'c';
+                    //         Buff[0] = 'c';
+                    //         fd = write( handle, Buff, 1 );
+                    //         cout << "main fd : " << fd << endl;
+                    //         if (fd == -1){
+                    //             cout << "write() error\n";
+                    //             exit(-1);
+                    //         }
 
-                            break;
-                    }
-                    if (ctrl_c_pressed){ 
-                        break;
-                    }
+                    //         break;
+                    // }
+                    // if (ctrl_c_pressed){ 
+                    //     break;
+                    // }
                 
                 
                 if (ctrl_c_pressed){ 
+                    fprintf(stdout, "  error rate minimum = %s %%\n", min_err_dist_rate_buff);
+                    fprintf(stdout, "  error rate maximum = %s %%\n", max_err_dist_rate_buff);
+                    fprintf(stdout, "  degree resolution minimum = %s ˚\n", min_err_angle_resolution_buff);
                     break;
                 }                 
             }

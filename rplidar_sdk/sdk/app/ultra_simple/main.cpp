@@ -42,8 +42,9 @@
 #define  BUFF_SIZE   1024
 #include <sys/stat.h>
 
-#include <thread>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 using namespace std;
 
@@ -68,18 +69,23 @@ float err_dist_rate = 0.0f;
 float min_err_dist_rate = 0.0f;
 float max_err_dist_rate = 0.0f;
 float dst_distance = 0.0f;
-float src_distance = 967.0f;
+float src_distance = 200.0f;
 char min_err_dist_rate_buff[1024];
 char max_err_dist_rate_buff[1024];
 
 float err_angle_resolution = 0.0f;
 float min_err_angle_resolution = 0.0f;
 float max_err_angle_resolution = 0.0f;
-float prev_angle = 0.0f;
+float init_angle_resolution = 0.0f;
+float prev_angle_resolution = 0.0f;
 float dst_angle = 0.0f;
-float src_angle = 4.0f;
+float src_angle = 6.0f;
+float pi_angle = 360.0f;
 char min_err_angle_resolution_buff[1024];
 char max_err_angle_resolution_buff[1024];
+
+int noise = 0;
+vector<float> noise_angle;
 ////
 
 #ifndef _countof
@@ -101,7 +107,6 @@ static inline void delay(_word_size_t ms){
 }
 #endif
 
-using std::thread;
 using namespace rp::standalone::rplidar;
 
 double what_time_is_it_now()
@@ -170,17 +175,17 @@ int getch(int key)
     int process_flag; 
 
     cout << "getch() fd : " << fd << endl;
-    int get_chk = tcgetattr(STDIN_FILENO, &oldattr);
+    int get_chk = tcgetattr( 0, &oldattr);
 
     newattr = oldattr;
     newattr.c_lflag &= ~( ICANON | ECHO );
     
     // TCSANOW : 즉시 변경
-    int set_chk = tcsetattr( STDIN_FILENO, TCSANOW, &newattr );
+    int set_chk = tcsetattr( 0, TCSANOW, &newattr );
     
     process_flag = key;
     
-    set_chk = tcsetattr( STDIN_FILENO, TCSANOW, &oldattr );
+    set_chk = tcsetattr( 0, TCSANOW, &oldattr );
     
     int result_chk = get_chk + set_chk;
     if (result_chk < 0){
@@ -191,11 +196,10 @@ int getch(int key)
     return process_flag;
 }
 
-void rate_resolution_measurement(){
+void rate_resolution_measurement(int pos){
     
     char dist_sign = '+';
     char angle_sign = '-';
-    
     if (src_distance < dst_distance)
     {
         err_dist_rate = ((dst_distance - src_distance) / src_distance) * 100;
@@ -243,43 +247,63 @@ void rate_resolution_measurement(){
         }
     }
 
-    // 서로 거리가 다른 물체 감지
-    if (src_angle < prev_angle)
+    if (pos == 0)
     {
-        err_angle_resolution = prev_angle - src_angle;
+        prev_angle_resolution = 0.0f;
+        cout << "init angle" << endl;
     }
-    // 하나만 감지
     else
     {
-        angle_sign = '-';
-        err_angle_resolution = src_angle - prev_angle;  
-    }
-
-    // degree initialize
-    if(err_angle_resolution <= 0.0 && err_angle_resolution >= 100.0)
-    {
-        cout << "Couldn't detect" << endl;   
-    }
-    else if (err_angle_resolution > 0.0 && err_angle_resolution < 100.0)
-    {
-        if(min_err_angle_resolution <= 0.0 && max_err_angle_resolution <= 0.0)
+        if (pos <= (int)src_angle - 1)
         {
-            min_err_angle_resolution = err_angle_resolution;
-        }
-        else
-        {
-            if (min_err_angle_resolution > err_angle_resolution)
+            if (dst_distance == 0)
             {
-                min_err_angle_resolution = err_angle_resolution;
-                cout << "err_angle_resolution" << err_angle_resolution << endl;
-                if((buff_size_chk = snprintf(min_err_angle_resolution_buff, 1024, "%c %03.2f", angle_sign, min_err_angle_resolution)) > 1024)
-                {
-                    cout << "overflow" << endl;
-                    exit(-2);
-                }
+                
+                noise++;
             }
+            else
+            {
+                prev_angle_resolution = dst_angle - prev_angle_resolution;
+                err_angle_resolution = prev_angle_resolution;
+                cout << "err_angle_resolution " << err_angle_resolution << endl;  
+            }   
         }
         
+        // degree initialize
+        if(err_angle_resolution <= 0.0 && err_angle_resolution >= 100.0)
+        {
+            cout << "Couldn't detect" << endl;   
+        }
+        else if (err_angle_resolution > 0.0 && err_angle_resolution < 100.0)
+        {
+            if(min_err_angle_resolution <= 0.0 && max_err_angle_resolution <= 0.0)
+            {
+                max_err_angle_resolution = min_err_angle_resolution = err_angle_resolution;
+            }
+            else
+            {
+                if (min_err_angle_resolution > err_angle_resolution)
+                {
+                    min_err_angle_resolution = err_angle_resolution;
+                    cout << "err_angle_resolution 1 " << err_angle_resolution << endl;
+                    if((buff_size_chk = snprintf(min_err_angle_resolution_buff, 1024, "%c %03.2f", angle_sign, min_err_angle_resolution)) > 1024)
+                    {
+                        cout << "overflow" << endl;
+                        exit(-2);
+                    }
+                }
+                else if (max_err_angle_resolution < err_angle_resolution)
+                {
+                    max_err_angle_resolution = err_angle_resolution;
+                    cout << "err_angle_resolution 2 " << err_angle_resolution << endl;
+                    if((buff_size_chk = snprintf(min_err_angle_resolution_buff, 1024, "%c %03.2f", angle_sign, max_err_angle_resolution)) > 1024)
+                    {
+                        cout << "overflow" << endl;
+                        exit(-2);
+                    }
+                }  
+            }            
+        }  
     }
 }
 
@@ -339,7 +363,10 @@ int main(int argc, const char * argv[]) {
     struct termios oldtio, newtio;
     int title;
     thread t_f(t_function);
-    
+    vector<float>::iterator angle_iter;
+
+    //SECTION code is added <--
+ 
     // from wifi thread
     if ( -1 == ( fd_from_yolo = open(FIFO_FROM_LIDAR, O_RDWR) ))
     {
@@ -444,6 +471,7 @@ int main(int argc, const char * argv[]) {
     
     rplidar_response_device_info_t devinfo;
     bool connectSuccess = false;
+    
     // make connection...
     if(useArgcBaudrate)
     {
@@ -537,6 +565,8 @@ int main(int argc, const char * argv[]) {
             // for (int pos = 0; pos < (int)count; ++pos)
             for (int pos = 0; pos < (int)src_angle; ++pos) 
             {
+                auto start = chrono::high_resolution_clock::now();
+
                 // angle_z_q14 : deg(각도)
                 // dist_mm_q2 : mm 단위 
                 // quality : measurement quality; 반사된 레이저 펄스 강
@@ -549,16 +579,30 @@ int main(int argc, const char * argv[]) {
                     dst_distance = nodes[pos].dist_mm_q2/4.0f;
                     if (dst_distance > 0.0f)
                     {
-                        dst_angle = (nodes[pos].angle_z_q14 * 90.f / (1 << 14));
-                        prev_angle = dst_angle;
-                        fprintf(stdout, "       prev_angle : %03.2f \n", prev_angle);
+                        if (pos == 0)
+                        {
+                            prev_angle_resolution = (nodes[pos].angle_z_q14 * 90.f / (1 << 14));
+                        }
+                        else
+                        {
+                            dst_angle = (nodes[pos].angle_z_q14 * 90.f / (1 << 14));
+                        }    
+                        fprintf(stdout, "       prev_angle_resolution : %03.2f \n", prev_angle_resolution);
+                    }
+                    
+                    auto finish = chrono::high_resolution_clock::now() - start;
+                    long long microseconds = chrono::duration_cast<chrono::microseconds>(finish).count();
+                    if (dst_distance > 0.0f){
+                        cout << "microseconds : " << microseconds << endl;
                     }
                     
                     // 오차 측정 함수
-                    rate_resolution_measurement();
+                    rate_resolution_measurement(pos);
 
                     fprintf(stdout, "  degree_count : %d \n", pos);
                     
+
+
                     // key = getch(nodes[pos].quality);
                 
                     // switch(key)
@@ -601,10 +645,17 @@ int main(int argc, const char * argv[]) {
                     // }
                 
                 
-                if (ctrl_c_pressed){ 
+                if (ctrl_c_pressed)
+                { 
                     fprintf(stdout, "  error rate minimum = %s %%\n", min_err_dist_rate_buff);
                     fprintf(stdout, "  error rate maximum = %s %%\n", max_err_dist_rate_buff);
                     fprintf(stdout, "  degree resolution minimum = %s ˚\n", min_err_angle_resolution_buff);
+                    fprintf(stdout, "  degree resolution maximum = %s ˚\n", max_err_angle_resolution_buff);
+                    for (angle_iter = noise_angle.begin(); angle_iter != noise_angle.end(); angle_iter++)
+                    {
+                        cout << *angle_iter << "";
+                    }
+                    cout << noise << endl;
                     break;
                 }                 
             }

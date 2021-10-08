@@ -85,7 +85,7 @@ char min_err_angle_resolution_buff[1024];
 char max_err_angle_resolution_buff[1024];
 
 int noise = 0;
-vector<float> noise_angle;
+vector<string> noise_angle;
 ////
 
 #ifndef _countof
@@ -258,8 +258,8 @@ void rate_resolution_measurement(int pos){
         {
             if (dst_distance == 0)
             {
-                
                 noise++;
+                noise_angle.push_back(to_string(dst_angle));
             }
             else
             {
@@ -363,7 +363,7 @@ int main(int argc, const char * argv[]) {
     struct termios oldtio, newtio;
     int title;
     thread t_f(t_function);
-    vector<float>::iterator angle_iter;
+    vector<string>::iterator angle_iter;
 
     //SECTION code is added <--
  
@@ -595,7 +595,7 @@ int main(int argc, const char * argv[]) {
                     if (dst_distance > 0.0f){
                         cout << "microseconds : " << microseconds << endl;
                     }
-                    
+
                     // 오차 측정 함수
                     rate_resolution_measurement(pos);
 
@@ -653,9 +653,17 @@ int main(int argc, const char * argv[]) {
                     fprintf(stdout, "  degree resolution maximum = %s ˚\n", max_err_angle_resolution_buff);
                     for (angle_iter = noise_angle.begin(); angle_iter != noise_angle.end(); angle_iter++)
                     {
-                        cout << *angle_iter << "";
+                        if (angle_iter == noise_angle.end() - 1)
+                        {
+                            cout << *angle_iter << "..." << endl;
+                        }
+                        else
+                        {
+                            cout << *angle_iter << ", ";
+                        }          
                     }
-                    cout << noise << endl;
+                    cout << noise << " units" << endl; 
+                    
                     break;
                 }                 
             }

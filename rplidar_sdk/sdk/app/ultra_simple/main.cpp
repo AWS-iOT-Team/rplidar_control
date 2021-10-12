@@ -76,7 +76,6 @@ char max_err_dist_rate_buff[1024];
 float err_angle_resolution = 0.0f;
 float min_err_angle_resolution = 0.0f;
 float max_err_angle_resolution = 0.0f;
-float init_angle_resolution = 0.0f;
 float prev_angle_resolution = 0.0f;
 float dst_angle = 0.0f;
 float src_angle = 10.0f;
@@ -86,6 +85,8 @@ char max_err_angle_resolution_buff[1024];
 
 int noise = 0;
 vector<string> noise_angle;
+
+
 ////
 
 #ifndef _countof
@@ -211,14 +212,14 @@ void rate_resolution_measurement(int pos){
     }
 
     // 거리 상에서 물체를 감지하지 못하면 각도 분해능 측정 x
-    if(err_dist_rate <= 0.0 && err_dist_rate >= 100.0)
+    if(err_dist_rate <= 0.0f && err_dist_rate >= 100.0f)
     {
         cout << "Couldn't detect" << endl;   
     }
-    else if(err_dist_rate > 0.0 && err_dist_rate < 100.0)
+    else if(err_dist_rate > 0.0f && err_dist_rate < 100.0f)
     {
         // distance initialize
-        if(min_err_dist_rate <= 0.0 && max_err_dist_rate <= 0.0)
+        if(min_err_dist_rate <= 0.0f && max_err_dist_rate <= 0.0f)
         {
             max_err_dist_rate = min_err_dist_rate = err_dist_rate;
         }
@@ -227,17 +228,17 @@ void rate_resolution_measurement(int pos){
             if (max_err_dist_rate < err_dist_rate)
             {
                 max_err_dist_rate = err_dist_rate;
-                cout << "err_dist_rate 1 " << err_dist_rate << endl;
+                cout << "  err_dist_rate 1 " << err_dist_rate << endl;
                 if((buff_size_chk = snprintf(max_err_dist_rate_buff, 1024, "%c %03.2f", dist_sign, max_err_dist_rate)) > 1024)
                 {
                     cout << "overflow" << endl;
                     exit(-2);
                 }
             }
-            else if (min_err_dist_rate > err_dist_rate)
+            else if (min_err_dist_rate >= err_dist_rate)
             {
                 min_err_dist_rate = err_dist_rate;
-                cout << "err_dist_rate 2 " << err_dist_rate << endl;
+                cout << "  err_dist_rate 2 " << err_dist_rate << endl;
                 if((buff_size_chk = snprintf(min_err_dist_rate_buff, 1024, "%c %03.2f", dist_sign, min_err_dist_rate)) > 1024)
                 {
                     cout << "overflow" << endl;
@@ -247,7 +248,7 @@ void rate_resolution_measurement(int pos){
         }
     }
 
-    if (pos == 0)
+    if (pos == 0 && dst_angle <= 0.0f)
     {
         prev_angle_resolution = 0.0f;
         cout << "init angle" << endl;
@@ -256,7 +257,7 @@ void rate_resolution_measurement(int pos){
     {
         if (pos <= (int)src_angle - 1)
         {
-            if (dst_distance == 0)
+            if (dst_distance <= 0.0f)
             {
                 noise++;
                 noise_angle.push_back(to_string(dst_angle));
@@ -265,27 +266,28 @@ void rate_resolution_measurement(int pos){
             {
                 prev_angle_resolution = dst_angle - prev_angle_resolution;
                 err_angle_resolution = prev_angle_resolution;
-                cout << "err_angle_resolution " << err_angle_resolution << endl;  
+                cout << "  err_angle_resolution " << err_angle_resolution << endl;  
             }   
         }
         
         // degree initialize
-        if(err_angle_resolution <= 0.0 && err_angle_resolution >= 100.0)
+        if(err_angle_resolution <= 0.0f && err_angle_resolution >= 100.0f)
         {
             cout << "Couldn't detect" << endl;   
         }
-        else if (err_angle_resolution > 0.0 && err_angle_resolution < 100.0)
+        else if (err_angle_resolution > 0.0f && err_angle_resolution < 100.0f)
         {
-            if(min_err_angle_resolution <= 0.0 && max_err_angle_resolution <= 0.0)
+            if(min_err_angle_resolution <= 0.0f && max_err_angle_resolution <= 0.0f)
             {
                 max_err_angle_resolution = min_err_angle_resolution = err_angle_resolution;
+                cout << "init max & min angle = "  << max_err_angle_resolution <<", " << min_err_angle_resolution << endl;
             }
             else
             {
-                if (min_err_angle_resolution > err_angle_resolution)
+                if (min_err_angle_resolution >= err_angle_resolution)
                 {
                     min_err_angle_resolution = err_angle_resolution;
-                    cout << "err_angle_resolution 1 " << err_angle_resolution << endl;
+                    cout << "   err_angle_resolution 1 " << err_angle_resolution << endl;
                     if((buff_size_chk = snprintf(min_err_angle_resolution_buff, 1024, "%c %03.2f", angle_sign, min_err_angle_resolution)) > 1024)
                     {
                         cout << "overflow" << endl;
@@ -295,8 +297,8 @@ void rate_resolution_measurement(int pos){
                 else if (max_err_angle_resolution < err_angle_resolution)
                 {
                     max_err_angle_resolution = err_angle_resolution;
-                    cout << "err_angle_resolution 2 " << err_angle_resolution << endl;
-                    if((buff_size_chk = snprintf(min_err_angle_resolution_buff, 1024, "%c %03.2f", angle_sign, max_err_angle_resolution)) > 1024)
+                    cout << "   err_angle_resolution 2 " << err_angle_resolution << endl;
+                    if((buff_size_chk = snprintf(max_err_angle_resolution_buff, 1024, "%c %03.2f", angle_sign, max_err_angle_resolution)) > 1024)
                     {
                         cout << "overflow" << endl;
                         exit(-2);
@@ -570,7 +572,7 @@ int main(int argc, const char * argv[]) {
                 // angle_z_q14 : deg(각도)
                 // dist_mm_q2 : mm 단위 
                 // quality : measurement quality; 반사된 레이저 펄스 강
-                printf("%s theta: %03.2f Dist: %08.2f Q: %d \n", 
+                printf("%s theta: %03.3f Dist: %08.2f Q: %d \n", 
                     (nodes[pos].flag & RPLIDAR_RESP_MEASUREMENT_SYNCBIT) ?"S \n" : " ", 
                     (nodes[pos].angle_z_q14 * 90.f / (1 << 14)), 
                     nodes[pos].dist_mm_q2/4.0f,
@@ -581,25 +583,27 @@ int main(int argc, const char * argv[]) {
                     {
                         if (pos == 0)
                         {
-                            prev_angle_resolution = (nodes[pos].angle_z_q14 * 90.f / (1 << 14));
+                            prev_angle_resolution = (nodes[pos].angle_z_q14 * 90.0f / (1 << 14));
+                            dst_angle = 0.0f;
                         }
                         else
                         {
                             dst_angle = (nodes[pos].angle_z_q14 * 90.f / (1 << 14));
+                            prev_angle_resolution = (nodes[pos - 1].angle_z_q14 * 90.0f / (1 << 14));
                         }    
-                        fprintf(stdout, "       prev_angle_resolution : %03.2f \n", prev_angle_resolution);
+                        fprintf(stdout, " prev_angle_resolution : %03.2f \n", prev_angle_resolution);
                     }
                     
                     auto finish = chrono::high_resolution_clock::now() - start;
                     long long microseconds = chrono::duration_cast<chrono::microseconds>(finish).count();
                     if (dst_distance > 0.0f){
-                        cout << "microseconds : " << microseconds << endl;
+                        cout << " microseconds : " << microseconds << endl;
                     }
 
                     // 오차 측정 함수
                     rate_resolution_measurement(pos);
 
-                    fprintf(stdout, "  degree_count : %d \n", pos);
+                    fprintf(stdout, " degree_count : %d \n", pos);
                     
 
 
@@ -667,6 +671,7 @@ int main(int argc, const char * argv[]) {
                     break;
                 }                 
             }
+            
         }
         if (ctrl_c_pressed){ 
             break;

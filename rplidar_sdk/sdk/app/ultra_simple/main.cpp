@@ -69,7 +69,7 @@ float err_dist_rate = 0.0f;
 float min_err_dist_rate = 0.0f;
 float max_err_dist_rate = 0.0f;
 float dst_distance = 0.0f;
-float src_distance = 200.0f;
+float src_distance = 300.0f;
 char min_err_dist_rate_buff[1024];
 char max_err_dist_rate_buff[1024];
 
@@ -79,7 +79,7 @@ float max_err_angle_resolution = 0.0f;
 float init_angle_resolution = 0.0f;
 float prev_angle_resolution = 0.0f;
 float dst_angle = 0.0f;
-float src_angle = 6.0f;
+float src_angle = 10.0f;
 float pi_angle = 360.0f;
 char min_err_angle_resolution_buff[1024];
 char max_err_angle_resolution_buff[1024];

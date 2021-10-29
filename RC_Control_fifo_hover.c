@@ -136,14 +136,16 @@ int main( int argc, char **argv )
 
 
     // 화일을 연다.
-    handle = open( "/dev/ttyUSB1", O_RDWR | O_NOCTTY );
+    //handle = open( "/dev/ttyUSB1", O_RDWR | O_NOCTTY );
     //handle = open( "/dev/ttyUSB0", O_RDWR | O_NOCTTY );
     //handle = open( "/dev/ttyTHS2", O_RDWR | O_NOCTTY );
+    handle = open( "/dev/ttyTHS1", O_RDWR | O_NOCTTY );    
     if( handle < 0 ) 
     {
         //화일 열기 실패
-        printf( "Serial Open Fail [/dev/ttyUSB0]\r\n "  );
+        //printf( "Serial Open Fail [/dev/ttyUSB0]\r\n "  );
         //printf( "Serial Open Fail [/dev/ttyTHS2]\r\n "  );
+        handle = open( "/dev/ttyTHS1", O_RDWR | O_NOCTTY );    
         exit(0);
     }
     
@@ -171,84 +173,7 @@ int main( int argc, char **argv )
 
     while((key=main_menu()) != 0)
     {
-        switch(key)
-        {
-
-            case '1':
-               printf("No.1\n");
-               Buff[0] = 'A';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               printf("apple\n");
-               break;
-
-            case '2':
-               printf("No.2\n");
-               Buff[0] = 'B';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               printf("banana\n");
-               break;
-
-            case '3':
-               printf("No.3\n");
-               Buff[0] = 'C';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               printf("bicycle\n");
-               break;
-
-            case '4':
-               printf("No.4\n");
-               Buff[0] = 'D';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               printf("dog\n");
-               break;
-
-            case '5':
-               printf("No.5\n");
-               Buff[0] = 'E';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               printf("truck\n");
-               break;
-
-            case '6':
-               printf("No.6\n");
-               Buff[0] = 'F';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               break;
-
-            case '7':
-               printf("No.7\n");
-               Buff[0] = 'G';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               break;
-
-            case '8':
-               printf("No.8\n");
-               Buff[0] = 'H';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               break;
-
-            case '9':
-               printf("No.9\n");
-               Buff[0] = 'I';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               break;
-
-            case '0':
-               printf("No.0\n");
-               Buff[0] = 'J';
-               write( fd_to_yolo, Buff, 1 );
-               printf("%c send\n", Buff[0]);
-               break;
-
+        switch(key)        {
             case 'D':
             case 'a':
                printf("a \n");               
@@ -283,13 +208,6 @@ int main( int argc, char **argv )
                printf("i\n");               
                //Buff[0] = 'i';
                Buff[0] = 'j';
-               write( handle, Buff, 1 );
-               break;  
-
-            case 'I':
-               printf("No.6\n");               
-               //Buff[0] = 'I';
-               Buff[0] = 'a';
                write( handle, Buff, 1 );
                break;  
 

@@ -150,57 +150,58 @@ void ctrlc(int)
 }
 
 // 쓰레드 함수
-void t_function()
-{
-    int fd_write;
+// void t_function()
+// {
+//     int fd_write;
 
-    //from yolo
-    while(1)
-    {
-        while(read(fd_from_yolo, buff, BUFF_SIZE) != -1)
-        {
-            Buff[0] = buff[0];
-            fd_write = write( handle, Buff, 1 );
-            if (fd_write < 0){
-                cout << "write() error";
-            }
-            printf("%s", buff);
-            memset(buff, 0x00, BUFF_SIZE);
-        }
-    }
-}
+//     //from yolo
+//     while(1)
+//     {
+//         while(read(fd_from_yolo, buff, BUFF_SIZE) != -1)
+//         {
+//             Buff[0] = buff[0];
+//             fd_write = write( handle, Buff, 1 );
+//             if (fd_write < 0){
+//                 cout << "write() error";
+//             }
+//             printf("%s", buff);
+//             memset(buff, 0x00, BUFF_SIZE);
+//         }
+//     }
+// }
 
-int getch(int key)
-{
-    struct termios oldattr, newattr;
-    int process_flag; 
+// int getch(int key)
+// {
+//     struct termios oldattr, newattr;
+//     int process_flag; 
 
-    cout << "getch() fd : " << fd << endl;
-    int get_chk = tcgetattr( 0, &oldattr);
+//     cout << "getch() fd : " << fd << endl;
+//     int get_chk = tcgetattr( 0, &oldattr);
 
-    newattr = oldattr;
-    newattr.c_lflag &= ~( ICANON | ECHO );
+//     newattr = oldattr;
+//     newattr.c_lflag &= ~( ICANON | ECHO );
     
-    // TCSANOW : 즉시 변경
-    int set_chk = tcsetattr( 0, TCSANOW, &newattr );
+//     // TCSANOW : 즉시 변경
+//     int set_chk = tcsetattr( 0, TCSANOW, &newattr );
     
-    process_flag = key;
+//     process_flag = key;
     
-    set_chk = tcsetattr( 0, TCSANOW, &oldattr );
+//     set_chk = tcsetattr( 0, TCSANOW, &oldattr );
     
-    int result_chk = get_chk + set_chk;
-    if (result_chk < 0){
-        cout << "tc() failed.\n";
-        exit(-1);
-    }
+//     int result_chk = get_chk + set_chk;
+//     if (result_chk < 0){
+//         cout << "tc() failed.\n";
+//         exit(-1);
+//     }
 
-    return process_flag;
-}
+//     return process_flag;
+// }
 
 void rate_resolution_measurement(int pos){
     
     char dist_sign = '+';
     char angle_sign = '-';
+
     if (src_distance < dst_distance)
     {
         err_dist_rate = ((dst_distance - src_distance) / src_distance) * 100;
@@ -248,6 +249,7 @@ void rate_resolution_measurement(int pos){
         }
     }
 
+    // degree initialize
     if (pos == 0 && dst_angle <= 0.0f)
     {
         prev_angle_resolution = 0.0f;
@@ -270,7 +272,6 @@ void rate_resolution_measurement(int pos){
             }   
         }
         
-        // degree initialize
         if(err_angle_resolution <= 0.0f && err_angle_resolution >= 100.0f)
         {
             cout << "Couldn't detect" << endl;   
@@ -362,76 +363,76 @@ void rate_resolution_measurement(int pos){
 int main(int argc, const char * argv[]) {
    
     //SECTION code is added -->
-    struct termios oldtio, newtio;
-    int title;
-    thread t_f(t_function);
+    // struct termios oldtio, newtio;
+    // int title;
+    // thread t_f(t_function);
     vector<string>::iterator angle_iter;
 
     //SECTION code is added <--
  
-    // from wifi thread
-    if ( -1 == ( fd_from_yolo = open(FIFO_FROM_LIDAR, O_RDWR) ))
-    {
-        if ( -1 == mkfifo( FIFO_FROM_LIDAR, 0666))
-        {
-            perror( "mkfifo() run error\n");
-            //exit( 1);
-        }
-        if ( -1 == ( fd_from_yolo = open( FIFO_FROM_LIDAR, O_RDWR)))
-        {
-            perror( "open() error\n");
-            //exit( 1);
-        }
-    }
-    // to wifi thread
-    if ( -1 == ( fd_to_yolo = open( FIFO_TO_LIDAR, O_RDWR)))
-    {
-        if ( -1 == mkfifo( FIFO_TO_LIDAR, 0666))
-        {
-            perror( "mkfifo() run error\n");
-            //exit( 1);
-        }
-        if ( -1 == ( fd_to_yolo = open( FIFO_TO_LIDAR, O_RDWR)))
-        {
-            perror( "open() error\n");
-            //exit( 1);
-        }
-    }
+    // // from wifi thread
+    // if ( -1 == ( fd_from_yolo = open(FIFO_FROM_LIDAR, O_RDWR) ))
+    // {
+    //     if ( -1 == mkfifo( FIFO_FROM_LIDAR, 0666))
+    //     {
+    //         perror( "mkfifo() run error\n");
+    //         //exit( 1);
+    //     }
+    //     if ( -1 == ( fd_from_yolo = open( FIFO_FROM_LIDAR, O_RDWR)))
+    //     {
+    //         perror( "open() error\n");
+    //         //exit( 1);
+    //     }
+    // }
+    // // to wifi thread
+    // if ( -1 == ( fd_to_yolo = open( FIFO_TO_LIDAR, O_RDWR)))
+    // {
+    //     if ( -1 == mkfifo( FIFO_TO_LIDAR, 0666))
+    //     {
+    //         perror( "mkfifo() run error\n");
+    //         //exit( 1);
+    //     }
+    //     if ( -1 == ( fd_to_yolo = open( FIFO_TO_LIDAR, O_RDWR)))
+    //     {
+    //         perror( "open() error\n");
+    //         //exit( 1);
+    //     }
+    // }
 
     // 화일을 연다.
     // handle = open( "/dev/ttyUSB1", O_RDWR | O_NOCTTY );
     // handle = open( "/dev/ttyUSB0", O_RDWR | O_NOCTTY );
-    handle = open( "/dev/ttyTHS2", O_RDWR | O_NOCTTY );
-    cout << "handle : " << handle << endl;
-    if( handle == -1) 
-    {
-        //화일 열기 실패
-        // printf( "Serial Open Fail [/dev/ttyUSB0]\r\n "  );
-        printf( "Serial Open Fail [/dev/ttyTHS2]\r\n "  );
-        exit(0);
-    }
+    // handle = open( "/dev/ttyTHS2", O_RDWR | O_NOCTTY );
+    // cout << "handle : " << handle << endl;
+    // if( handle == -1) 
+    // {
+    //     //화일 열기 실패
+    //     // printf( "Serial Open Fail [/dev/ttyUSB0]\r\n "  );
+    //     printf( "Serial Open Fail [/dev/ttyTHS2]\r\n "  );
+    //     exit(0);
+    // }
     
-    tcgetattr( handle, &oldtio );  // 현재 설정을 oldtio에 저장
+    // tcgetattr( handle, &oldtio );  // 현재 설정을 oldtio에 저장
 
-    memset( &newtio, 0, sizeof(newtio) );
-    newtio.c_cflag = B115200 | CS8 | CLOCAL | CREAD ; 
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
+    // memset( &newtio, 0, sizeof(newtio) );
+    // newtio.c_cflag = B115200 | CS8 | CLOCAL | CREAD ; 
+    // newtio.c_iflag = IGNPAR;
+    // newtio.c_oflag = 0;
 
-    //set input mode (non-canonical, no echo,.....)
-    newtio.c_lflag = 0;
+    // //set input mode (non-canonical, no echo,.....)
+    // newtio.c_lflag = 0;
     
-    newtio.c_cc[VTIME] = 128;    // time-out 값으로 사용된다. time-out 값은 TIME*0.1초 이다.
-    newtio.c_cc[VMIN]  = 0;     // MIN은 read가 리턴되기 위한 최소한의 문자 개수
+    // newtio.c_cc[VTIME] = 128;    // time-out 값으로 사용된다. time-out 값은 TIME*0.1초 이다.
+    // newtio.c_cc[VMIN]  = 0;     // MIN은 read가 리턴되기 위한 최소한의 문자 개수
     
-    tcflush( handle, TCIFLUSH );
-    tcsetattr( handle, TCSANOW, &newtio );
+    // tcflush( handle, TCIFLUSH );
+    // tcsetattr( handle, TCSANOW, &newtio );
     
-    // 타이틀 메세지를 표출한다. 
-    title = write( handle, TitleMessage, strlen( TitleMessage ) );
-    if (title == -1){
-        cout << "write() failed.\n";
-    }
+    // // 타이틀 메세지를 표출한다. 
+    // title = write( handle, TitleMessage, strlen( TitleMessage ) );
+    // if (title == -1){
+    //     cout << "write() failed.\n";
+    // }
 
     const char * opt_com_path = NULL;
     _u32         baudrateArray[2] = {115200, 256000};
@@ -565,7 +566,7 @@ int main(int argc, const char * argv[]) {
             // (nodes[pos].angle_z_q14 * 90.f / (1 << 14)) = 각도가 360을 넘기기 전까지 반복
             // 반복 조건문을 수정 시 보고 싶은 각도까지 설정 가능할 듯
             // for (int pos = 0; pos < (int)count; ++pos)
-            for (int pos = 0; pos < (int)src_angle; ++pos) 
+            for (int pos = 0; pos < (int)count; ++pos) 
             {
                 auto start = chrono::high_resolution_clock::now();
 
@@ -677,8 +678,9 @@ int main(int argc, const char * argv[]) {
             break;
         }
     }
-    tcsetattr( handle, TCSANOW, &oldtio );
-    close( handle );
+
+    // tcsetattr( handle, TCSANOW, &oldtio );
+    // close( handle );
 
     drv->stop();
     drv->stopMotor();

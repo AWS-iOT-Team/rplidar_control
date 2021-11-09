@@ -69,6 +69,7 @@ def _b2i(byte):
     '''Converts byte to integer (for Python 2 compatability)'''
     return byte if int(sys.version[0]) == 3 else ord(byte)
 
+# int 타입으로 바꾼 byte 값들을 계산하여 출력
 def _process_scan(raw):
     '''Processes input raw data and returns measurment data'''
     new_scan = bool(_b2i(raw[0]) & 0b1)
